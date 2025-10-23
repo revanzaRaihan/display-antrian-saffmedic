@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.pharmacy')
 
 @section('title', 'Display Farmasi')
 
@@ -8,7 +8,7 @@
     <!-- Antrian utama (Farmasi) -->
     <div class="panel-main p-4 flex flex-col justify-center items-center">
         <h2 class="tv-subtitle text-gray-600 mb-2">ANTRIAN FARMASI SAAT INI</h2>
-        <div class="tv-number text-green-600 mb-2">{{ $pharmacyCall }}</div>
+        <div id="pharmacy-call" class="tv-number text-green-600 mb-2">{{ $pharmacyCall }}</div>
         <p class="text-gray-500">Silakan Menuju Ke Loket Farmasi</p>
     </div>
 
@@ -16,6 +16,7 @@
     <div class="panel-main p-4">
         @if($youtubeId)
         <iframe
+            id="display-video-frame"
             src="https://www.youtube.com/embed/{{ $youtubeId }}?autoplay=1&loop=1&playlist={{ $youtubeId }}&mute=1"
             frameborder="0"
             loading="lazy"
@@ -35,7 +36,7 @@
         <!-- Pendaftaran -->
         <div class="panel-secondary flex flex-col justify-center items-center text-center">
             <h3 class="tv-subtitle font-semibold mb-1">PEMANGGILAN PENDAFTARAN</h3>
-            <div id="pharmacy-call" class="tv-number text-green-600">{{ $currentQueue ?? '-' }}</div>
+            <div id="registration-call" class="tv-number text-green-600">{{ $currentQueue ?? '-' }}</div>
             <p class="text-gray-500 text-sm">Nomor antrian pendaftaran</p>
         </div>
 
@@ -59,17 +60,48 @@
 <script>
     jQuery(function($) {
         function updateQueue() {
-            $.getJSON("{{ route('ajax.queue') }}", function(data) {
-                // Update antrian utama
-                document.querySelector('.panel-main .tv-number').textContent = data.pharmacyCall;
+            $.getJSON("{{ route('ajax.queue') }}?screen=pharmacy", function(data) {
+                // Update nomor antrian utama (farmasi)
+                const mainQueueEl = document.getElementById('pharmacy-call');
+                if (mainQueueEl) {
+                    mainQueueEl.textContent = data.pharmacyCall !== null ? data.pharmacyCall : '-';
+                }
 
-                // Update pendaftaran & payment
-                document.getElementById('pharmacy-call').textContent =
-                    data.currentQueue !== null ? data.currentQueue : '-';
-                document.getElementById('billing-call').textContent =
-                    data.billingCall !== null ? data.billingCall : '-';
+                // Update billing / tagihan
+                const billingEl = document.getElementById('billing-call');
+                if (billingEl) {
+                    billingEl.textContent = data.billingCall !== null ? data.billingCall : '-';
+                }
+
+                // Update nomor antrian pendaftaran
+                const registrationEl = document.getElementById('registration-call');
+                if (registrationEl) {
+                    registrationEl.textContent = data.currentQueue !== null ? data.currentQueue : '-';
+                }
+
+                // Update running text
+                const marqueeEl = document.getElementById('running-text-display');
+                if (marqueeEl) {
+                    marqueeEl.textContent = data.marquee ?? '';
+                }
+
+                // Update video YouTube
+                const videoFrame = document.getElementById('display-video-frame');
+                if (videoFrame) {
+                    const newYoutubeId = data.youtubeId;
+                    if (newYoutubeId) {
+                        const newSrc = `https://www.youtube.com/embed/${newYoutubeId}?autoplay=1&loop=1&playlist=${newYoutubeId}&mute=1`;
+                        if (videoFrame.src !== newSrc) {
+                            videoFrame.src = newSrc;
+                        }
+                    } else {
+                        videoFrame.src = '';
+                    }
+                }
             });
         }
+
+        // Panggil langsung dan set interval
         updateQueue();
         setInterval(updateQueue, 5000);
     });

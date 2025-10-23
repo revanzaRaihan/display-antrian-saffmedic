@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
@@ -50,12 +51,16 @@ class QueueDisplayController extends Controller
         }
     }
 
-    protected function fetchDisplaySettings()
+    protected function fetchDisplaySettings($screenType)
     {
-        $runningText = DisplaySetting::where('type', 'running_text')->value('value') ?? 'Selamat datang di layanan Saffmedic.';
-        $videoLink   = DisplaySetting::where('type', 'video_link')->value('value') ?? null;
+        $runningText = DisplaySetting::forScreen($screenType)
+            ->where('type', 'running_text')
+            ->value('value') ?? 'Selamat datang di layanan Saffmedic.';
 
-        // Jika ada video link, ambil YouTube ID
+        $videoLink = DisplaySetting::forScreen($screenType)
+            ->where('type', 'video_link')
+            ->value('value') ?? null;
+
         $youtubeId = $videoLink ? $this->extractYoutubeId($videoLink) : null;
 
         return [
@@ -64,21 +69,36 @@ class QueueDisplayController extends Controller
         ];
     }
 
-    protected function fetchQueueData()
-    {
+
+protected function fetchQueueData()
+{
+    return Cache::remember('queue_data_cache', 5, function () {
         $currentQueue = 0;
         $missedQueues = [];
         $pharmacyCall = '-';
         $billingCall = '-';
+        $skippedNumber = '-';
 
         try {
+            $callSkippedNumber = $this->client->get('api/call-again?type=call-again', [
+                'headers' => ['Accept' => 'application/json'],
+                'timeout' => 5
+            ]);
+            $skippedNumber = json_decode($callSkippedNumber->getBody(), true);
+
+            $callRegist = $this->client->get('api/call-registration?type=registration', [
+                'headers' => ['Accept' => 'application/json'],
+                'timeout' => 5
+            ]);
+            $currentRegist = json_decode($callRegist->getBody(), true);
+            
             $response = $this->client->get('/ajax/antrian/queue', [
                 'headers' => ['Accept' => 'application/json'],
                 'timeout' => 5
             ]);
             $data = json_decode($response->getBody(), true);
 
-            $currentQueue = $data['number'] ?? 0;
+            $currentQueue = $currentRegist['number'] ?? "-";
             $missedQueues = $data['number_skip'] ?? [];
 
             $farmasi = $this->client->get('/api/current-call?type=call_to_apotik', [
@@ -100,9 +120,11 @@ class QueueDisplayController extends Controller
             'currentQueue' => $currentQueue,
             'missedQueues' => $missedQueues,
             'pharmacyCall' => $pharmacyCall,
-            'billingCall' => $billingCall
+            'billingCall' => $billingCall,
+            'skippedNumber' => $skippedNumber
         ];
-    }
+    });
+}
 
     protected function extractYoutubeId($youtubeLink)
     {
@@ -116,34 +138,36 @@ class QueueDisplayController extends Controller
     {
         $this->loginApi();
         $queueData = $this->fetchQueueData();
-        $displaySettings = $this->fetchDisplaySettings();
+        $displaySettings = $this->fetchDisplaySettings('registration');
 
-        return view('display', array_merge($queueData, $displaySettings));
+        return view('display/registration/display', array_merge($queueData, $displaySettings));
     }
 
     public function payment()
     {
         $this->loginApi();
         $queueData = $this->fetchQueueData();
-        $displaySettings = $this->fetchDisplaySettings();
+        $displaySettings = $this->fetchDisplaySettings('payment');
 
-        return view('displayPayment', array_merge($queueData, $displaySettings));
+        return view('display/payment/displayPayment', array_merge($queueData, $displaySettings));
     }
 
     public function pharmacy()
     {
         $this->loginApi();
         $queueData = $this->fetchQueueData();
-        $displaySettings = $this->fetchDisplaySettings();
+        $displaySettings = $this->fetchDisplaySettings('pharmacy');
 
-        return view('displayPharmacy', array_merge($queueData, $displaySettings));
+        return view('display/pharmacy/displayPharmacy', array_merge($queueData, $displaySettings));
     }
 
-    public function ajaxQueue()
+
+    public function ajaxQueue(Request $request)
     {
+        $screenType = $request->get('screen', 'registration');
         $this->loginApi();
         $queueData = $this->fetchQueueData();
-        $displaySettings = $this->fetchDisplaySettings();
+        $displaySettings = $this->fetchDisplaySettings($screenType);
 
         return response()->json(array_merge($queueData, $displaySettings));
     }

@@ -13,10 +13,15 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// routes/web.php
+// Display Antrian Umum
 Route::get('/display', 'QueueDisplayController@index');
 Route::get('/display/payment', 'QueueDisplayController@payment');
 Route::get('/display/pharmacy', 'QueueDisplayController@pharmacy');
 
-Route::get('/display/clear', 'QueueDisplayController@clearSession');
+// Display Antrian Poli
+Route::get('/display/poly/{id}', 'Display\QueuePolyController@show')->name('display.poly');
+
+// AJAX
 Route::get('/ajax/queue', 'QueueDisplayController@ajaxQueue')->name('ajax.queue');
+Route::get('/ajax/queue/poly', 'display\QueuePolyController@ajaxQueue')->name('ajax.poli-queue');
+
