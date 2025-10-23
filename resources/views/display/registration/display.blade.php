@@ -9,7 +9,7 @@
         <!-- Antrian utama -->
         <div class="panel-main w-full">
             <h2 class="tv-subtitle text-gray-600 mb-2 text-center">ANTRIAN PENDAFTARAN SAAT INI</h2>
-            <div id="registration-call" class="tv-number text-green-600 mb-2 text-center">{{ $currentQueue ?? '-' }}</div>
+            <div id="registration-call" class="tv-number text-green-600 mb-2 text-center">{{ $currentQueue }}</div>
             <p class="text-gray-500 text-center mb-2">Silakan Menuju Ke Loket Pendaftaran</p>
         </div>
 
@@ -21,9 +21,15 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-center border-separate" style="border-spacing: 0 6px;" id="missed-table">
                         <tbody>
+                            @forelse ($missedQueues as $index => $miss)
+                            <tr class="bg-white rounded">
+                                <td class="px-3 py-2 text-gray-800 font-semibold text-lg rounded">{{ $miss }}</td>
+                            </tr>
+                            @empty
                             <tr>
                                 <td class="px-3 py-3 text-gray-500 italic">Tidak ada antrian terlewat</td>
                             </tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
@@ -35,7 +41,7 @@
                 <div class="next-cards-container relative overflow-hidden">
                     <div class="next-cards flex space-x-2 transition-transform duration-500 justify-center items-center" id="next-cards">
                         <div id="next-number" class="next-card flex-shrink-0 w-32 h-20 bg-green-100 rounded-lg flex items-center justify-center text-2xl font-semibold text-green-800">
-                            {{ $currentQueue ? $currentQueue + 1 : '-' }}
+                            {{ $currentQueue }}
                         </div>
                     </div>
                 </div>
@@ -87,81 +93,113 @@
 </section>
 @endsection
 
-<!-- @push('scripts')
-<script src="https://js.pusher.com/7.0/pusher.min.js"></script>
-<script src="/js/echo.js"></script>
+@push('scripts')
 <script>
-jQuery(function($) {
-    let originalQueue = null;
-    let timeoutHandle = null;
-    let missedQueues = [];
+    jQuery(function($) {
+        let originalQueue = null;
+        let timeoutHandle = null;
+        let skipDisplayed = false;
+        let lastSkippedNumber = null;
 
-    function showTemporarySkippedNumber(skippedNumber) {
-        const registrationEl = document.getElementById('registration-call');
-        if (!registrationEl) return;
+        function showTemporarySkippedNumber(skippedNumber) {
+            const registrationEl = document.getElementById('registration-call');
+            if (!registrationEl) return;
 
-        const numberValue = skippedNumber?.number ?? skippedNumber ?? '';
-        if (!numberValue) return;
+            const numberValue = (typeof skippedNumber === 'object') ?
+                skippedNumber?.number ?? skippedNumber?.queue ?? '' :
+                skippedNumber;
 
-        if (originalQueue === null) originalQueue = registrationEl.textContent;
-        registrationEl.textContent = numberValue;
+            if (!numberValue) return;
 
-        if (timeoutHandle) clearTimeout(timeoutHandle);
+            if (originalQueue === null) originalQueue = registrationEl.textContent;
+            registrationEl.textContent = numberValue;
 
-        timeoutHandle = setTimeout(() => {
-            registrationEl.textContent = originalQueue;
-            originalQueue = null;
-        }, 5000); // tampilkan 5 detik
-    }
+            if (timeoutHandle) clearTimeout(timeoutHandle);
 
-    function updateMissedTable() {
-        const missedTable = document.querySelector('#missed-table tbody');
-        if (!missedTable) return;
-
-        if (missedQueues.length === 0) {
-            missedTable.innerHTML = `
-                <tr>
-                    <td class="px-3 py-3 text-gray-500 italic">Tidak ada antrian terlewat</td>
-                </tr>
-            `;
-        } else {
-            missedTable.innerHTML = missedQueues.map(num => `
-                <tr class="bg-white rounded">
-                    <td class="px-3 py-2 text-gray-800 font-semibold text-lg rounded">${num}</td>
-                </tr>
-            `).join('');
+            timeoutHandle = setTimeout(() => {
+                registrationEl.textContent = originalQueue;
+                originalQueue = null;
+            }, 5000);
         }
-    }
 
-    // === WebSocket Listener ===
-    window.Echo = new Echo({
-        broadcaster: 'pusher',
-        key: 'local',
-        wsHost: window.location.hostname,
-        wsPort: 6001,
-        forceTLS: false,
-        disableStats: true,
-    });
+        let lastData = null;
 
-    window.Echo.channel('queue-updates')
-        .listen('QueueUpdated', (e) => {
-            const data = e.queue;
-            const regEl = document.getElementById('registration-call');
-            const nextEl = document.getElementById('next-number');
+        function updateQueue() {
+            $.getJSON("{{ route('ajax.queue') }}?screen=registration", function(data) {
+                // Jika data sama dengan sebelumnya, jangan render ulang
+                if (JSON.stringify(data) === JSON.stringify(lastData)) return;
+                lastData = data;
 
-            if (data.action === 'call') {
-                if (regEl) regEl.textContent = data.number ?? '-';
-                if (nextEl) nextEl.textContent = (parseInt(data.number) + 1) || '-';
-            }
+                const registrationEl = document.getElementById('registration-call');
+                const nextEl = document.getElementById('next-number');
 
-            if (data.action === 'call_again') {
-                showTemporarySkippedNumber(data.number);
-                if (!missedQueues.includes(data.number)) {
-                    missedQueues.push(data.number);
-                    updateMissedTable();
+                if (originalQueue === null && registrationEl) {
+                    registrationEl.textContent = data.currentQueue ?? '-';
+                    if (nextEl) nextEl.textContent = (Number(data.currentQueue) + 1) ?? '-';
                 }
-            }
-        });
-});
+
+                const pharmacyEl = document.getElementById('pharmacy-call');
+                if (pharmacyEl && pharmacyEl.textContent !== String(data.pharmacyCall ?? '-'))
+                    pharmacyEl.textContent = data.pharmacyCall ?? '-';
+
+                const billingEl = document.getElementById('billing-call');
+                if (billingEl && billingEl.textContent !== String(data.billingCall ?? '-'))
+                    billingEl.textContent = data.billingCall ?? '-';
+
+                // Render missed queues hanya jika berubah
+                const missedTable = document.querySelector('#missed-table tbody');
+                if (missedTable) {
+                    const currentMissed = (data.missedQueues || []).join(',');
+                    const lastMissed = (lastData?.missedQueues || []).join(',');
+                    if (currentMissed !== lastMissed) {
+                        if (data.missedQueues && data.missedQueues.length > 0) {
+                            missedTable.innerHTML = data.missedQueues.map(num => `
+                        <tr class="bg-white rounded">
+                            <td class="px-3 py-2 text-gray-800 font-semibold text-lg rounded">${num}</td>
+                        </tr>
+                    `).join('');
+                        } else {
+                            missedTable.innerHTML = `
+                        <tr>
+                            <td class="px-3 py-3 text-gray-500 italic">Tidak ada antrian terlewat</td>
+                        </tr>
+                    `;
+                        }
+                    }
+                }
+
+                // Skip number logic tetap sama
+                const currentSkipped = (typeof data.skippedNumber === 'object') ?
+                    data.skippedNumber?.number ?? data.skippedNumber?.queue ?? null :
+                    data.skippedNumber;
+
+                if (currentSkipped && currentSkipped !== lastSkippedNumber) {
+                    skipDisplayed = false;
+                    lastSkippedNumber = currentSkipped;
+                }
+
+                if (!skipDisplayed && currentSkipped && currentSkipped !== '-') {
+                    showTemporarySkippedNumber(currentSkipped);
+                    skipDisplayed = true;
+                }
+
+                // Running text hanya update jika beda
+                const marqueeEl = document.getElementById('running-text-display');
+                if (marqueeEl && marqueeEl.textContent !== data.marquee)
+                    marqueeEl.textContent = data.marquee ?? '';
+
+                // Update video hanya jika ID berubah
+                const videoFrame = document.getElementById('display-video-frame');
+                if (videoFrame) {
+                    const newYoutubeId = data.youtubeId;
+                    const newSrc = newYoutubeId ? `https://www.youtube.com/embed/${newYoutubeId}?autoplay=1&loop=1&playlist=${newYoutubeId}&mute=1` : '';
+                    if (videoFrame.src !== newSrc && newYoutubeId) videoFrame.src = newSrc;
+                }
+            });
+        }
+
+        updateQueue();
+        setInterval(updateQueue, 5000);
+    });
 </script>
-@endpush -->
+@endpush
