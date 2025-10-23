@@ -1,78 +1,90 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# Display Antrian SAFFMedic
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/d/total.svg" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/v/stable.svg" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/license.svg" alt="License"></a>
-</p>
+## Deskripsi  
+Aplikasi tampilan antrian real-time untuk layanan kesehatan SAFFMedic.  
+Dibangun dengan Laravel 6 dan PHP 7.4.33.  
+Menampilkan nomor urut pasien dan status layanan secara langsung pada monitor/TV ruang tunggu.
 
-## About Laravel
+## Fitur Utama  
+- Nomor antrian otomatis ter-update dari sistem pendaftaran.  
+- Tampilan publik (layar monitor) untuk menampilkan antrian saat ini.  
+- Panel admin untuk memanggil nomor antrian dan mengubah status layanan.  
+- Mendukung banyak pintu layanan atau poli jika diperlukan.  
+- Responsif untuk berbagai ukuran layar (tablet, monitor, TV).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Teknologi  
+- Backend: Laravel 6.x (minimal PHP 7.2.5) :contentReference[oaicite:2]{index=2}  
+- PHP versi 7.4.33.  
+- Database: MySQL (atau MariaDB) sesuai konfigurasi Anda.  
+- Frontend: Blade templates &/atau JavaScript (sesuaikan dengan implementasi).  
+- Web Socket atau polling untuk pembaruan real-time (jika diimplementasikan).
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Persyaratan Sistem  
+- PHP >= 7.2.5 untuk Laravel 6.x :contentReference[oaicite:3]{index=3}  
+- Ekstensi PHP: BCMath, Ctype, Fileinfo, JSON, Mbstring, OpenSSL, PDO, Tokenizer, XML. :contentReference[oaicite:4]{index=4}  
+- Composer ter-instal.  
+- MySQL atau MariaDB sebagai database.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Instalasi  
+1. Clone repository:  
+   ```bash
+   git clone https://github.com/revanzaRaihan/display-antrian-saffmedic.git
+   cd display-antrian-saffmedic
+Install dependency backend:
 
-## Learning Laravel
+bash
+Salin kode
+composer install
+Copy file environment:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+bash
+Salin kode
+cp .env.example .env
+Sesuaikan konfigurasi di file .env (database, host, port, layanan antrian, dsb).
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Generate key aplikasi:
 
-## Laravel Sponsors
+bash
+Salin kode
+php artisan key:generate
+Jalankan migrasi dan seeding jika ada:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+bash
+Salin kode
+php artisan migrate --seed
+Jika menggunakan asset build frontend (npm/yarn):
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[British Software Development](https://www.britishsoftware.co)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- [UserInsights](https://userinsights.com)
-- [Fragrantica](https://www.fragrantica.com)
-- [SOFTonSOFA](https://softonsofa.com/)
-- [User10](https://user10.com)
-- [Soumettre.fr](https://soumettre.fr/)
-- [CodeBrisk](https://codebrisk.com)
-- [1Forge](https://1forge.com)
-- [TECPRESSO](https://tecpresso.co.jp/)
-- [Runtime Converter](http://runtimeconverter.com/)
-- [WebL'Agence](https://weblagence.com/)
-- [Invoice Ninja](https://www.invoiceninja.com)
-- [iMi digital](https://www.imi-digital.de/)
-- [Earthlink](https://www.earthlink.ro/)
-- [Steadfast Collective](https://steadfastcollective.com/)
-- [We Are The Robots Inc.](https://watr.mx/)
-- [Understand.io](https://www.understand.io/)
-- [Abdel Elrafa](https://abdelelrafa.com)
-- [Hyper Host](https://hyper.host)
-- [Appoly](https://www.appoly.co.uk)
-- [OP.GG](https://op.gg)
+bash
+Salin kode
+npm install
+npm run dev
+Jalankan aplikasi:
 
-## Contributing
+bash
+Salin kode
+php artisan serve
+Akses di http://localhost:8000 atau sesuai konfigurasi server Anda.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Penggunaan
+Akses panel admin untuk memanggil nomor antrian.
 
-## Code of Conduct
+Arahkan tampilan monitor ke URL tampilan publik agar pasien dapat melihat nomor dan status.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Pastikan koneksi internet/lokal aktif dan sistem refresh/update secara real-time jika fitur tersebut diaktifkan.
 
-## Security Vulnerabilities
+Cocok digunakan di klinik, rumah sakit, apotek, atau layanan publik lainnya yang membutuhkan sistem antrian.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Kontribusi
+Kontribusi diterima dengan senang hati.
+Silakan fork repository ini, buat branch baru (feature/nama-fitur), dan lakukan pull request.
+Pastikan Anda mengikuti standar pengkodean, menambahkan dokumentasi dan mengetes fitur baru sebelum mengirim.
 
-## License
+Lisensi
+Proyek ini dilisensikan di bawah lisensi MIT (sesuaikan jika Anda memilih lisensi lain).
+Lihat file LICENSE untuk rincian.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+csharp
+Salin kode
+
+Jika Anda memiliki bagian fitur khusus (misalnya API endpoint, integrasi WebSocket, Docker setup) saya dapat membantu memperluas README dengan bagian tersebut.
+::contentReference[oaicite:5]{index=5}
