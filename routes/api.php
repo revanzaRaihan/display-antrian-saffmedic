@@ -2,7 +2,8 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DisplaySettingsController;
+use App\Http\Controllers\Display\DisplaySettingsController;
+use App\Http\Controllers\Display\BrandController;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,5 +20,6 @@ use App\Http\Controllers\DisplaySettingsController;
 //     return $request->user();
 // });
 
+Route::get('/ajax/brand', [BrandController::class, 'fetch'])->name('ajax.brand');
 Route::post('/display-settings', [DisplaySettingsController::class, 'save']);
 Route::get('/display-settings', [DisplaySettingsController::class, 'get']);

@@ -13,15 +13,21 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Home
+Route::get('/', function () {
+    return view('home');
+});
+
+
 // Display Antrian Umum
-Route::get('/display', 'QueueDisplayController@index');
-Route::get('/display/payment', 'QueueDisplayController@payment');
-Route::get('/display/pharmacy', 'QueueDisplayController@pharmacy');
+Route::get('/display', 'Display\QueueController@index');
+Route::get('/display/payment', 'Display\QueueController@payment');
+Route::get('/display/pharmacy', 'Display\QueueController@pharmacy');
+Route::get('/', 'Display\QueuePolyController@index');
 
 // Display Antrian Poli
 Route::get('/display/poly/{id}', 'Display\QueuePolyController@show')->name('display.poly');
 
 // AJAX
-Route::get('/ajax/queue', 'QueueDisplayController@ajaxQueue')->name('ajax.queue');
-Route::get('/ajax/queue/poly', 'display\QueuePolyController@ajaxQueue')->name('ajax.poli-queue');
-
+Route::get('/ajax/queue', 'Display\QueueController@ajaxQueue')->name('ajax.queue');
+Route::get('/ajax/queue/poly', 'Display\QueuePolyController@ajaxQueue')->name('ajax.poli-queue');

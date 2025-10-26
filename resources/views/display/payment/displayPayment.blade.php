@@ -1,4 +1,4 @@
-@extends('layouts.payment')
+@extends('layouts.app')
 
 @section('title', 'Display Pembayaran')
 
@@ -8,7 +8,7 @@
     <!-- Antrian utama (Pembayaran) -->
     <div class="panel-main p-4 flex flex-col justify-center items-center">
         <h2 class="tv-subtitle text-gray-600 mb-2">ANTRIAN PEMBAYARAN SAAT INI</h2>
-        <div id="billing-call" class="tv-number text-green-600 mb-2">{{ $billingCall }}</div>
+        <div id="billing-call" class="tv-number text-green-600 mb-2">-</div>
         <p class="text-gray-500">Silakan Menuju Ke Loket Pembayaran</p>
     </div>
 
@@ -36,14 +36,14 @@
         <!-- Pendaftaran -->
         <div class="panel-secondary flex flex-col justify-center items-center text-center">
             <h3 class="tv-subtitle font-semibold mb-1">PENDAFTARAN</h3>
-            <div id="registration-call" class="tv-number text-green-600">{{ $currentQueue ?? '-' }}</div>
+            <div id="registration-call" class="tv-number text-green-600">-</div>
             <p class="text-gray-500 text-sm">Nomor antrian pendaftaran</p>
         </div>
 
         <!-- Farmasi -->
         <div class="panel-secondary flex flex-col justify-center items-center text-center">
             <h3 class="tv-subtitle font-semibold mb-1">FARMASI</h3>
-            <div id="pharmacy-call" class="tv-number text-green-600">{{ $pharmacyCall ?? '-' }}</div>
+            <div id="pharmacy-call" class="tv-number text-green-600">-</div>
             <p class="text-gray-500 text-sm">Nomor antrian farmasi</p>
         </div>
     </div>
@@ -58,52 +58,95 @@
 
 @push('scripts')
 <script>
-    jQuery(function($) {
-        function updateQueue() {
-            $.getJSON("{{ route('ajax.queue') }}?screen=payment", function(data) {
-                // Update nomor antrian utama (billing / pembayaran)
-                const mainQueueEl = document.querySelector('billing-call');
-                if (mainQueueEl) {
-                    mainQueueEl.textContent = data.billingCall !== null ? data.billingCall : '-';
-                }
+jQuery(function($) {
+    // Variables
+    let currentQueueNumber = 0;
+    let tempMissedNumber = null;
 
-                // Update nomor antrian pendaftaran
-                const registrationEl = document.getElementById('registration-call');
-                if (registrationEl) {
-                    registrationEl.textContent = data.currentQueue !== null ? data.currentQueue : '-';
-                }
+    // Render queue display
+    function renderQueue() {
+        const currentQueueEl = document.getElementById('registration-call');
+        const nextNumberEl = document.getElementById('next-number');
 
-                // Update nomor antrian farmasi
-                const pharmacyEl = document.getElementById('pharmacy-call');
-                if (pharmacyEl) {
-                    pharmacyEl.textContent = data.pharmacyCall !== null ? data.pharmacyCall : '-';
-                }
+        if (currentQueueEl) currentQueueEl.textContent =
+            (tempMissedNumber !== null) ? tempMissedNumber : currentQueueNumber;
+    }
 
-                // Update running text
-                const marqueeEl = document.getElementById('running-text-display');
-                if (marqueeEl) {
-                    marqueeEl.textContent = data.marquee ?? '';
-                }
+    // Normal queue event
+    Echo.channel('queue-registration')
+        .listen('.queue.registration.called', (data) => {
+            tempMissedNumber = null;
+            currentQueueNumber = Number(data.number) || 0;
+            renderQueue();
+        });
 
-                // Update video YouTube
-                const videoFrame = document.getElementById('display-video-frame');
-                if (videoFrame) {
-                    const newYoutubeId = data.youtubeId;
-                    if (newYoutubeId) {
-                        const newSrc = `https://www.youtube.com/embed/${newYoutubeId}?autoplay=1&loop=1&playlist=${newYoutubeId}&mute=1`;
-                        if (videoFrame.src !== newSrc) {
-                            videoFrame.src = newSrc;
-                        }
-                    } else {
-                        videoFrame.src = '';
-                    }
-                }
-            });
-        }
+    // Skipped queue event
+    Echo.channel('queue-skipped')
+        .listen('.queue.skipped.called', (data) => {
+            tempMissedNumber = Number(data.number) || null;
+            renderQueue();
+        });
 
-        // Panggil langsung dan set interval
-        updateQueue();
-        setInterval(updateQueue, 5000);
-    });
+    // Pharmacy queue
+    Echo.channel('queue-pharmacy')
+        .listen('.queue.pharmacy.called', (data) => {
+            document.getElementById('pharmacy-call').textContent = data.number;
+        });
+
+    // Payment queue
+    Echo.channel('queue-payment')
+        .listen('.queue.payment.called', (data) => {
+            document.getElementById('billing-call').textContent = data.number;
+        });
+
+    // Polling for table, video and running text
+    function updateQueue() {
+        $.getJSON("{{ route('ajax.queue') }}?screen=payment", function(data) {
+
+            if ((currentQueueNumber === 0 || currentQueueNumber == null) && data.currentQueue) {
+                currentQueueNumber = Number(data.currentQueue) || 0;
+                renderQueue();
+            }
+
+            // Missed queue table
+            const missedTableBody = document.getElementById('missed-body');
+            if (missedTableBody) {
+                if (data.missedQueues && data.missedQueues.length > 0) {
+                    missedTableBody.innerHTML = data.missedQueues.map(num => `
+                        <tr class="bg-white rounded">
+                            <td class="px-3 py-2 text-gray-800 font-semibold text-lg rounded">${num}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    missedTableBody.innerHTML = `
+                        <tr>
+                            <td class="px-3 py-3 text-gray-500 italic">No missed queue</td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // Running text
+            const marqueeEl = document.getElementById('running-text-display');
+            if (marqueeEl) marqueeEl.textContent = data.marquee ?? '';
+
+            // Video
+            const videoFrame = document.getElementById('display-video-frame');
+            if (videoFrame) {
+                const newYoutubeId = data.youtubeId;
+                const newSrc = newYoutubeId
+                    ? `https://www.youtube.com/embed/${newYoutubeId}?autoplay=1&loop=1&playlist=${newYoutubeId}&mute=1`
+                    : '';
+
+                if (videoFrame.src !== newSrc) videoFrame.src = newSrc;
+            }
+
+        }).fail(() => {});
+    }
+
+    renderQueue();
+    updateQueue();
+    setInterval(updateQueue, 5000);
+});
 </script>
 @endpush

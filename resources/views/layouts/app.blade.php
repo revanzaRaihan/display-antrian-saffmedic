@@ -40,6 +40,17 @@
 
     <!-- SCRIPT -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $.getJSON("{{ route('ajax.brand') }}")
+            .done(function(data) {
+                $('header h1').text(data.name);
+            })
+            .fail(function() {
+                console.error('Gagal mengambil nama brand');
+            });
+    </script>
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+    <script src="{{ mix('js/app.js') }}"></script>
     <script src="{{ asset('js/display.js') }}" defer></script>
     @stack('scripts')
 </body>

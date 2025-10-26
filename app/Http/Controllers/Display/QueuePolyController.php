@@ -20,7 +20,7 @@ class QueuePolyController extends Controller
         $this->client = new Client([
             'base_uri' => $this->baseUri,
             'cookies' => true,
-            'timeout' => 5
+            'timeout' => 5,
         ]);
     }
 
@@ -43,44 +43,38 @@ class QueuePolyController extends Controller
                     'email' => 'administrator@gmail.com',
                     'password' => 'administrator',
                 ],
-                'allow_redirects' => true
+                'allow_redirects' => true,
             ]);
         } catch (\Exception $e) {
             Log::error('Gagal login ke API: ' . $e->getMessage());
         }
     }
-    // FETCH DATA ANTRIAN POLI
-    protected function fetchQueueByPoly($polyId)
+
+    protected function fetchPolyList()
     {
         try {
-            $today = now('Asia/Jakarta')->toDateString();
-
-            $response = $this->client->get('/api/poli-queues', [
-                'query' => ['poly_id' => $polyId],
-                'headers' => ['Accept' => 'application/json']
+            $response = $this->client->get('/api/poly-list', [
+                'headers' => ['Accept' => 'application/json'],
             ]);
 
             $data = json_decode($response->getBody(), true);
 
-            $filtered = collect($data)
-                ->filter(fn($q) => isset($q['in_date']) && str_starts_with($q['in_date'], $today))
-                ->sortByDesc(fn($q) => strtotime($q['in_date']))
-                ->values();
-
-            return $filtered->map(fn($q) => [
-                'poly_id' => $q['poly_id'] ?? null,
-                'poli_name' => $q['poli_name'] ?? null,
-                'reference_queue' => $q['reference_queue'] ?? null,
-                'open_time' => $q['open_time'] ?? null,
-                'close_time' => $q['close_time'] ?? null,
-            ])->toArray();
+            return collect($data)
+                ->map(fn($poly) => [
+                    'id' => $poly['id'] ?? null,
+                    'name' => $poly['name'] ?? 'Poli Tidak Dikenal',
+                    'open_time' => $poly['open_time'] ?? '-',
+                    'close_time' => $poly['close_time'] ?? '-',
+                    'color' => $poly['color'] ?? '#cccccc',
+                    'status' => $poly['status'] ?? 'inactive',
+                ])
+                ->toArray();
         } catch (\Exception $e) {
-            Log::error("Gagal fetch antrian poli $polyId: " . $e->getMessage());
+            Log::error("Gagal fetch data outpatient poly: " . $e->getMessage());
             return [];
         }
     }
 
-    //FETCH DISPLAY SETTINGS (RUNNING TEXT & VIDEO)
     protected function fetchDisplaySettings()
     {
         $runningText = DisplaySetting::forScreen('poly')
@@ -95,7 +89,7 @@ class QueuePolyController extends Controller
 
         return [
             'marquee'   => $runningText,
-            'youtubeId' => $youtubeId
+            'youtubeId' => $youtubeId,
         ];
     }
 
@@ -107,78 +101,50 @@ class QueuePolyController extends Controller
         return null;
     }
 
-
-    // TAMPILAN DISPLAY POLI
     public function show($polyId = 1)
-{
-    $polyId = $polyId ?: 1;
+    {
+        $this->loginApi();
+        $polies = $this->fetchPolyList();
+        $selectedPoly = collect($polies)->firstWhere('id', $polyId) ?? null;
 
-    $this->loginApi();
-    $queues = $this->fetchQueueByPoly($polyId);
-    $queues = array_values($queues);
+        $displaySettings = $this->fetchDisplaySettings();
 
-    $displaySettings = $this->fetchDisplaySettings();
-
-    // Ambil currentQueue dari API current-call/poli
-    $currentQueueNumber = null;
-    try {
-        $response = $this->client->get("/api/current-call/poli", [
-            'query' => ['poly_id' => $polyId],
-            'headers' => ['Accept' => 'application/json']
+        return view('display.poly.displayPoly', [
+            'polyId' => $polyId,
+            'polyName' => $selectedPoly['name'] ?? 'Poli Tidak Dikenal',
+            'openTime' => substr($selectedPoly['open_time'] ?? '-', 0, 5),
+            'closeTime' => substr($selectedPoly['close_time'] ?? '-', 0, 5),
+            'marquee' => $displaySettings['marquee'],
+            'youtubeId' => $displaySettings['youtubeId'],
+            'polies' => $polies,
         ]);
-        $data = json_decode($response->getBody(), true);
-        if (isset($data['number']) && $data['number']) {
-            $currentQueueNumber = $data['number'];
-        }
-    } catch (\Exception $e) {
-        Log::error("Gagal ambil current queue untuk poly_id $polyId: " . $e->getMessage());
     }
 
-    // Ambil queue berikutnya (tetap dari fetchQueueByPoly)
-    $nextQueue = null;
-    if (count($queues) > 1) {
-        $nextQueue = $queues[1]['reference_queue'] ?? null;
+    public function index()
+    {
+        $this->loginApi();
+        $polies = $this->fetchPolyList();
+
+        return view('home', [
+            'polies' => $polies,
+        ]);
     }
 
-    // Ambil jam buka & tutup (format HH:MM)
-    $openTime = isset($queues[0]['open_time']) ? substr($queues[0]['open_time'], 0, 5) : '-';
-    $closeTime = isset($queues[0]['close_time']) ? substr($queues[0]['close_time'], 0, 5) : '-';
 
-    return view('display.poly.displayPoly', [
-        'queues' => $queues,
-        'polyId' => $polyId,
-        'polyName' => $queues[0]['poli_name'] ?? 'Poli Tidak Dikenal',
-        'currentQueue' => $currentQueueNumber ?? ($queues[0]['reference_queue'] ?? '-'),
-        'nextQueue' => $nextQueue ?? '-',
-        'openTime' => $openTime,
-        'closeTime' => $closeTime,
-        'marquee' => $displaySettings['marquee'],
-        'youtubeId' => $displaySettings['youtubeId'],
-    ]);
-}
-
-    // ENDPOINT UNTUK AJAX REFRESH POLI
     public function ajaxQueue(Request $request)
     {
         $polyId = $request->get('poly_id');
 
         $this->loginApi();
-        $queues = $this->fetchQueueByPoly($polyId);
-        $queues = array_values($queues);
+        $polies = $this->fetchPolyList();
+        $selectedPoly = collect($polies)->firstWhere('id', $polyId) ?? null;
 
         $displaySettings = $this->fetchDisplaySettings();
 
-        $current = $queues[0] ?? null;
-        $nextQueue = $queues[1]['reference_queue'] ?? '-';
-        $openTime = isset($current['open_time']) ? substr($current['open_time'], 0, 5) : '-';
-        $closeTime = isset($current['close_time']) ? substr($current['close_time'], 0, 5) : '-';
-
         return response()->json([
-            'polyName' => $current['poli_name'] ?? 'Poli Tidak Dikenal',
-            'currentQueue' => $current['reference_queue'] ?? '-',
-            'nextQueue' => $nextQueue,
-            'openTime' => $openTime,
-            'closeTime' => $closeTime,
+            'polyName' => $selectedPoly['name'] ?? 'Poli Tidak Dikenal',
+            'openTime' => substr($selectedPoly['open_time'] ?? '-', 0, 5),
+            'closeTime' => substr($selectedPoly['close_time'] ?? '-', 0, 5),
             'marquee' => $displaySettings['marquee'],
             'youtubeId' => $displaySettings['youtubeId'],
         ]);
