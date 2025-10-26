@@ -21,7 +21,9 @@
     },
     "dependencies": {
         "autoprefixer": "^9.8.8",
+        "laravel-echo": "^1.11.3",
         "postcss": "^7.0.39",
+        "pusher-js": "^8.4.0",
         "tailwindcss": "^1.9.6"
     }
 }

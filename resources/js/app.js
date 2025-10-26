@@ -16,13 +16,3 @@ document.addEventListener('DOMContentLoaded', function () {
   updateClock();
   setInterval(updateClock, 1000);
 });
-
-setInterval(function(){
-  fetch('/api/display-data')
-    .then(res => res.json())
-    .then(json => {
-      // update DOM sesuai key
-      if (json.currentQueue) document.querySelector('.current-queue').innerText = json.currentQueue;
-      // update missed, pharmacy, billing...
-    });
-}, 5000);

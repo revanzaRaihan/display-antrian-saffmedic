@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Display;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 use App\DisplaySetting;
 
-
-class QueueDisplayController extends Controller
+class QueueController extends Controller
 {
     protected $client;
     protected $baseUri;
@@ -69,62 +69,28 @@ class QueueDisplayController extends Controller
         ];
     }
 
+    protected function fetchQueueData()
+    {
+        return Cache::remember('queue_data_cache', 5, function () {
+            $missedQueues = [];
 
-protected function fetchQueueData()
-{
-    return Cache::remember('queue_data_cache', 5, function () {
-        $currentQueue = 0;
-        $missedQueues = [];
-        $pharmacyCall = '-';
-        $billingCall = '-';
-        $skippedNumber = '-';
+            try {
+                $response = $this->client->get('/ajax/antrian/queue', [
+                    'headers' => ['Accept' => 'application/json'],
+                    'timeout' => 5
+                ]);
+                $data = json_decode($response->getBody(), true);
 
-        try {
-            $callSkippedNumber = $this->client->get('api/call-again?type=call-again', [
-                'headers' => ['Accept' => 'application/json'],
-                'timeout' => 5
-            ]);
-            $skippedNumber = json_decode($callSkippedNumber->getBody(), true);
+                $missedQueues = $data['number_skip'] ?? [];
+            } catch (\Exception $e) {
+                Log::error('Gagal ambil antrian: ' . $e->getMessage());
+            }
 
-            $callRegist = $this->client->get('api/call-registration?type=registration', [
-                'headers' => ['Accept' => 'application/json'],
-                'timeout' => 5
-            ]);
-            $currentRegist = json_decode($callRegist->getBody(), true);
-            
-            $response = $this->client->get('/ajax/antrian/queue', [
-                'headers' => ['Accept' => 'application/json'],
-                'timeout' => 5
-            ]);
-            $data = json_decode($response->getBody(), true);
-
-            $currentQueue = $currentRegist['number'] ?? "-";
-            $missedQueues = $data['number_skip'] ?? [];
-
-            $farmasi = $this->client->get('/api/current-call?type=call_to_apotik', [
-                'headers' => ['Accept' => 'application/json'],
-                'timeout' => 5
-            ]);
-            $pharmacyCall = json_decode($farmasi->getBody(), true)['number'] ?? '-';
-
-            $payment = $this->client->get('/api/current-call?type=call_to_payment', [
-                'headers' => ['Accept' => 'application/json'],
-                'timeout' => 5
-            ]);
-            $billingCall = json_decode($payment->getBody(), true)['number'] ?? '-';
-        } catch (\Exception $e) {
-            Log::error('Gagal ambil antrian: ' . $e->getMessage());
-        }
-
-        return [
-            'currentQueue' => $currentQueue,
-            'missedQueues' => $missedQueues,
-            'pharmacyCall' => $pharmacyCall,
-            'billingCall' => $billingCall,
-            'skippedNumber' => $skippedNumber
-        ];
-    });
-}
+            return [
+                'missedQueues' => $missedQueues,
+            ];
+        });
+    }
 
     protected function extractYoutubeId($youtubeLink)
     {
@@ -145,7 +111,6 @@ protected function fetchQueueData()
 
     public function payment()
     {
-        $this->loginApi();
         $queueData = $this->fetchQueueData();
         $displaySettings = $this->fetchDisplaySettings('payment');
 
@@ -154,13 +119,11 @@ protected function fetchQueueData()
 
     public function pharmacy()
     {
-        $this->loginApi();
         $queueData = $this->fetchQueueData();
         $displaySettings = $this->fetchDisplaySettings('pharmacy');
 
         return view('display/pharmacy/displayPharmacy', array_merge($queueData, $displaySettings));
     }
-
 
     public function ajaxQueue(Request $request)
     {
